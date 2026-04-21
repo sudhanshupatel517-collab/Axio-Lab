@@ -137,7 +137,7 @@ app.get('/api/dashboard/stats', (req, res) => {
 });
 
 // Serve React Frontend (Wildcard Route)
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
