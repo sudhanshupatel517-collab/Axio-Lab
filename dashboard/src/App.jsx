@@ -40,7 +40,7 @@ function OverviewPage() {
   const [stats, setStats] = useState(null);
   
   useEffect(() => {
-    fetch('http://localhost:3000/api/dashboard/stats')
+    fetch('/api/dashboard/stats')
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(console.error);
@@ -145,7 +145,7 @@ function SamplesPage() {
   const [data, setData] = useState([]);
   
   const fetchSamples = () => {
-    fetch('http://localhost:3000/api/requests?status=Requested,Approved')
+    fetch('/api/requests?status=Requested,Approved')
       .then(res => res.json())
       .then(res => setData(res.requests || []));
   };
@@ -153,7 +153,7 @@ function SamplesPage() {
   useEffect(() => fetchSamples(), []);
 
   const handleCollect = (id) => {
-    fetch(`http://localhost:3000/api/requests/${id}/status`, {
+    fetch(`/api/requests/${id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Processing' })
@@ -211,7 +211,7 @@ function ProcessingPage() {
     e.preventDefault();
     setError('');
     // By user request: We are using a dummy model, so take anything as correct and move forward.
-    fetch(`http://localhost:3000/api/requests`).then(r => r.json()).then(all => {
+    fetch(`/api/requests`).then(r => r.json()).then(all => {
       let req = all.requests.find(r => r.axiovitalId.toLowerCase() === validationData.id.toLowerCase());
       if (!req && all.requests.length > 0) {
         req = all.requests[0]; // If ID not found, just use the first request as a fallback dummy
@@ -226,7 +226,7 @@ function ProcessingPage() {
 
   const handleCompleteTest = (e) => {
     e.preventDefault();
-    fetch(`http://localhost:3000/api/requests/${activeTest.id}/status`, {
+    fetch(`/api/requests/${activeTest.id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Completed', reportFile: 'Report_Generated.pdf' })
@@ -291,7 +291,7 @@ function ReportsPage() {
   const [data, setData] = useState([]);
   
   useEffect(() => {
-    fetch('http://localhost:3000/api/requests?status=Completed')
+    fetch('/api/requests?status=Completed')
       .then(res => res.json())
       .then(res => setData(res.requests || []));
   }, []);
@@ -386,7 +386,7 @@ function TestOrdersPage() {
   const [activeDropdown, setActiveDropdown] = useState(null);
 
   const fetchData = () => {
-    fetch('http://localhost:3000/api/requests')
+    fetch('/api/requests')
       .then(res => res.json())
       .then(result => { if (result.requests) setData(result.requests); setIsLoading(false); })
       .catch(err => { console.error(err); setIsLoading(false); });
@@ -425,13 +425,13 @@ function TestOrdersPage() {
     const formData = new FormData(e.target);
     const orderData = Object.fromEntries(formData.entries());
     orderData.paymentAmount = orderData.paymentStatus === 'Paid' ? 45 : 0;
-    fetch('http://localhost:3000/api/requests', {
+    fetch('/api/requests', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData)
     }).then(() => { setIsNewOrderModalOpen(false); fetchData(); });
   };
 
   const updateStatus = (id, status) => {
-    fetch(`http://localhost:3000/api/requests/${id}/status`, {
+    fetch(`/api/requests/${id}/status`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
     }).then(() => { setSelectedOrder(null); fetchData(); });
   };

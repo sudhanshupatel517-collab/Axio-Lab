@@ -136,6 +136,11 @@ app.get('/api/dashboard/stats', (req, res) => {
     }
 });
 
+// Serve React Frontend (Wildcard Route)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Start Server
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server running");
