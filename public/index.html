@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AxoVital - LabTrack System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="toast-msg">Message</span>
+    </div>
+
+    <!-- Login Area -->
+    <div id="login-view" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fa-solid fa-heart-pulse" style="color: var(--primary); font-size: 32px;"></i>
+                <h2>AxoVital</h2>
+                <p>Powered by LabTrack System</p>
+            </div>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Username</label>
+                    <div class="input-field">
+                        <i class="fa-solid fa-user"></i>
+                        <input type="text" id="username" placeholder="Enter username" value="admin" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="input-field">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="password" placeholder="Enter password" value="admin123" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary full-width mt-4">Sign In</button>
+            </form>
+            <div class="login-footer mt-4">
+                <p>Use <b>admin</b> / <b>admin123</b> to login</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Area (Hidden until login) -->
+    <div id="app-container" class="app-container hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                <span>AxoVital</span>
+            </div>
+
+            <div class="menu-section mt-6">
+                <p class="menu-label">Menu</p>
+                <ul class="nav-links">
+                    <li class="active" data-view="dashboard"><a href="#"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+                    <li data-view="requests"><a href="#"><i class="fa-solid fa-bell"></i> Patient Requests</a></li>
+                    <li data-view="tests"><a href="#"><i class="fa-solid fa-vial"></i> Tests</a></li>
+                    <li data-view="processing"><a href="#"><i class="fa-solid fa-microscope"></i> Lab Processing</a></li>
+                    <li data-view="reports"><a href="#"><i class="fa-solid fa-file-pdf"></i> Reports</a></li>
+                </ul>
+            </div>
+
+            <div class="user-profile-bottom">
+                <img src="https://i.pravatar.cc/150?img=11" alt="Profile">
+                <div class="info">
+                    <span id="logged-user-name">Admin User</span>
+                    <small id="logged-user-role">Administrator</small>
+                </div>
+                <button id="logout-btn" class="icon-btn transparent"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div>
+                    <h2 id="topbar-title">Dashboard Overview</h2>
+                    <p class="subtitle" style="color:var(--text-muted); font-size:13px;" id="current-date"></p>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-box">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" placeholder="Search AxioVital ID...">
+                    </div>
+                    <button class="icon-btn position-relative">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="notification-dot"></span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Views Container -->
+            <div class="scrollable-content">
+                
+                <!-- Dashboard View -->
+                <div id="view-dashboard" class="view-section active">
+                    <!-- KPI Cards (6 total) -->
+                    <div class="grid-row top-cards" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg primary-light"><i class="fa-solid fa-users" style="color:var(--primary)"></i></span> Total Requests</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-requested">0</h2>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg blue-light"><i class="fa-solid fa-thumbs-up" style="color:var(--blue)"></i></span> Approved Requests</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-approved">0</h2>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg orange-light"><i class="fa-solid fa-vial" style="color:var(--orange)"></i></span> Tests in Progress</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-tests">0</h2>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg orange-light"><i class="fa-solid fa-microscope" style="color:var(--orange)"></i></span> Processing Count</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-processing">0</h2>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg green-light"><i class="fa-solid fa-check-double" style="color:var(--green)"></i></span> Completed Tests</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-completed">0</h2>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3><span class="icon-bg primary-light"><i class="fa-solid fa-paper-plane" style="color:var(--primary)"></i></span> Reports Sent</h3>
+                            </div>
+                            <div class="record-stats mt-4">
+                                <h2 id="kpi-sent">0</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Area -->
+                    <div class="grid-row middle-cards mt-6" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3>Requests Timeline</h3>
+                            </div>
+                            <div class="chart-wrapper mt-4">
+                                <canvas id="lineChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3>Workflow Status</h3>
+                            </div>
+                            <div class="chart-wrapper mt-4">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header split">
+                                <h3>Test Demographics</h3>
+                            </div>
+                            <div class="chart-wrapper mt-4">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patient Requests View -->
+                <div id="view-requests" class="view-section">
+                    <div class="card table-card">
+                        <div class="card-header split">
+                            <h3>Incoming External Requests (From User App)</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>AxioVital ID</th>
+                                        <th>Patient Profile</th>
+                                        <th>Disease / Test</th>
+                                        <th>Method</th>
+                                        <th>Payment</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="requests-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tests View -->
+                <div id="view-tests" class="view-section">
+                    <div class="card table-card">
+                        <div class="card-header split">
+                            <h3>Approved Requests for Test Collection</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>AxioVital ID</th>
+                                        <th>Patient Profile</th>
+                                        <th>Test / Disease</th>
+                                        <th>Method</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tests-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lab Processing View -->
+                <div id="view-processing" class="view-section">
+                    <div class="card table-card mt-4">
+                        <div class="card-header split">
+                            <h3>Samples Currently Processing</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>AxioVital ID</th>
+                                        <th>Patient Profile</th>
+                                        <th>Test / Disease</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="processing-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports View -->
+                <div id="view-reports" class="view-section">
+                    <div class="card table-card">
+                        <div class="card-header split">
+                            <h3>Completed Tests - Pendings Reports</h3>
+                        </div>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>AxioVital ID</th>
+                                        <th>Patient Profile</th>
+                                        <th>Test / Disease</th>
+                                        <th>Report Attachment</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-table-body">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Proceed Modal (For Prototype) -->
+    <div class="modal-overlay" id="proceed-modal">
+        <div class="modal-content card">
+            <div class="modal-header split">
+                <h2>Proceed to Lab Processing</h2>
+                <button class="icon-btn transparent" onclick="closeModal('proceed-modal')"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="proceed-form" class="mt-4">
+                <input type="hidden" id="proceed-req-id">
+                <p style="font-size:14px; margin-bottom:16px; color:var(--text-muted);">Please provide the Order ID and PIN to move this request to the lab processing queue. (Prototype accepts ANY input).</p>
+                <div class="input-group">
+                    <label>Order ID</label>
+                    <input type="text" id="proceed-order-id" placeholder="Enter Order ID" required>
+                </div>
+                <div class="input-group">
+                    <label>PIN</label>
+                    <input type="text" id="proceed-pin" placeholder="Enter User PIN" required>
+                </div>
+                <div class="modal-actions mt-6">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('proceed-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-arrow-right"></i> Submit & Proceed</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload Report Modal -->
+    <div class="modal-overlay" id="upload-report-modal">
+        <div class="modal-content card">
+            <div class="modal-header split">
+                <h2>Upload Lab Report</h2>
+                <button class="icon-btn transparent" onclick="closeModal('upload-report-modal')"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="upload-report-form" class="mt-4">
+                <input type="hidden" id="report-req-id">
+                <p style="font-size:14px; margin-bottom:16px;">Attach report file for <strong id="report-pt-name"></strong> (<span id="report-test-name"></span>)</p>
+                <div class="input-group">
+                    <label>Select File (PDF/Image)</label>
+                    <input type="file" id="report-file" required style="border: 1px dashed var(--border-color); padding: 20px;">
+                </div>
+                <div class="modal-actions mt-6">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('upload-report-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Send to User App</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
