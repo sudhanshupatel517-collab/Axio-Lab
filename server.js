@@ -129,6 +129,6 @@ app.get('/api/dashboard/stats', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`LMS Server running on http://localhost:${PORT}`);
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server running");
 });
