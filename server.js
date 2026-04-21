@@ -8,7 +8,13 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Base API Route
+app.get('/api', (req, res) => {
+    res.json({ message: "API is working" });
+});
 
 // Authentication
 app.post('/api/login', (req, res) => {
