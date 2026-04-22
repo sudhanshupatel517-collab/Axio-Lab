@@ -572,24 +572,97 @@ function TestOrdersPage() {
   );
 }
 
+// --- AUTHENTICATION & LOGIN PAGE ---
+function LoginPage({ onLogin, error }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-slate-900 mb-8">
+          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
+            <Plus className="w-5 h-5 text-white" />
+          </div>
+          AxoVital Admin
+        </div>
+        
+        {error && <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">{error}</div>}
+        
+        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+            <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="sarah@axiovital.com" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+            <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••" />
+          </div>
+          <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm">
+            Sign In to Dashboard
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // --- ROOT APP COMPONENT ---
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('isAuthenticated') === 'true');
+  const [adminData, setAdminData] = useState(() => {
+    return JSON.parse(localStorage.getItem('adminData')) || { name: 'Dr. Sarah Admin', email: 'sarah@axiovital.com', password: 'admin' };
+  });
+  
+  useEffect(() => {
+    localStorage.setItem('adminData', JSON.stringify(adminData));
+  }, [adminData]);
+
+  const [loginError, setLoginError] = useState('');
+  const handleLogin = (email, password) => {
+    if (email === adminData.email && password === adminData.password) {
+      setIsAuthenticated(true);
+      localStorage.setItem('isAuthenticated', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Invalid email or password.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('isAuthenticated');
+    setActiveMenu(null);
+  };
+
   const [currentPage, setCurrentPage] = useState('Test Orders');
   const [activeMenu, setActiveMenu] = useState(null);
   const [settingsModal, setSettingsModal] = useState(null);
+  
+  // Settings Form State
+  const [tempName, setTempName] = useState('');
+  const [tempEmail, setTempEmail] = useState('');
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+
+  const openModal = (tab) => {
+    setSettingsModal(tab);
+    setTempName(adminData.name);
+    setTempEmail(adminData.email);
+    setCurrentPwd('');
+    setNewPwd('');
+  };
+
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Critical result for Jane Doe", time: "5m ago", read: false },
     { id: 2, text: "Sample collected for AXV-1234", time: "1h ago", read: false },
     { id: 3, text: "System update completed", time: "2h ago", read: true }
   ]);
 
-  const toggleMenu = (menu) => {
-    setActiveMenu(activeMenu === menu ? null : menu);
-  };
+  const toggleMenu = (menu) => setActiveMenu(activeMenu === menu ? null : menu);
 
   const handleDarkMode = () => {
-    setActiveMenu(null);
     if (document.documentElement.style.filter) {
       document.documentElement.style.filter = '';
       document.querySelectorAll('img').forEach(img => img.style.filter = '');
@@ -601,12 +674,16 @@ export default function App() {
 
   const handleMenuOption = (opt) => {
     setActiveMenu(null);
-    if (opt === 'Dark Mode') {
-      handleDarkMode();
+    if (opt === 'Sign Out') {
+      handleLogout();
     } else {
-      setSettingsModal(opt);
+      openModal(opt);
     }
   };
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} error={loginError} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-12">
@@ -643,7 +720,7 @@ export default function App() {
               {activeMenu === 'settings' && (
                 <div className="absolute top-full mt-2 right-0 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-2">
                   <div className="px-4 py-2 text-sm font-semibold text-slate-900 border-b border-slate-100 mb-2">Settings</div>
-                  {['Profile Settings', 'System Preferences', 'Dark Mode', 'Security'].map(opt => (
+                  {['Profile Settings', 'System Preferences', 'Security'].map(opt => (
                     <div key={opt} onClick={() => handleMenuOption(opt)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">{opt}</div>
                   ))}
                 </div>
@@ -680,14 +757,14 @@ export default function App() {
               {activeMenu === 'profile' && (
                 <div className="absolute top-full mt-2 right-0 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-2">
                   <div className="px-4 py-3 border-b border-slate-100 mb-2">
-                    <div className="text-sm font-bold text-slate-900">Dr. Sarah Admin</div>
-                    <div className="text-xs text-slate-500">sarah@axiovital.com</div>
+                    <div className="text-sm font-bold text-slate-900">{adminData.name}</div>
+                    <div className="text-xs text-slate-500 truncate">{adminData.email}</div>
                   </div>
-                  {['My Profile', 'Account Settings', 'Help Center'].map(opt => (
-                    <div key={opt} onClick={() => handleMenuOption(opt === 'My Profile' ? 'Profile Settings' : opt)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">{opt}</div>
+                  {['Account Settings', 'Help Center'].map(opt => (
+                    <div key={opt} onClick={() => handleMenuOption(opt)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">{opt}</div>
                   ))}
                   <div className="border-t border-slate-100 mt-2 pt-2">
-                    <div onClick={() => { setActiveMenu(null); alert('Logged out successfully'); }} className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer font-medium">Sign Out</div>
+                    <div onClick={() => handleMenuOption('Sign Out')} className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 cursor-pointer font-medium">Sign Out</div>
                   </div>
                 </div>
               )}
@@ -713,7 +790,7 @@ export default function App() {
                 {['Profile Settings', 'System Preferences', 'Security', 'Account Settings', 'Help Center'].map(tab => (
                   <button 
                     key={tab} 
-                    onClick={() => setSettingsModal(tab)} 
+                    onClick={() => openModal(tab)} 
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${settingsModal === tab ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}
                   >
                     {tab}
@@ -725,28 +802,39 @@ export default function App() {
               <button onClick={() => setSettingsModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
               <h2 className="text-xl font-bold text-slate-900 mb-6">{settingsModal}</h2>
               
-              {settingsModal === 'Profile Settings' || settingsModal === 'Account Settings' ? (
-                <div className="space-y-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label><input type="text" defaultValue="Dr. Sarah Admin" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label><input type="email" defaultValue="sarah@axiovital.com" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Role</label><input type="text" defaultValue="Head Pathologist" readOnly className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 outline-none" /></div>
-                  <button onClick={() => alert('Profile updated!')} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Save Changes</button>
-                </div>
+              {settingsModal === 'Profile Settings' ? (
+                <form onSubmit={(e) => { e.preventDefault(); setAdminData({...adminData, name: tempName}); alert('Profile saved permanently!'); }} className="space-y-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label><input required type="text" value={tempName} onChange={e => setTempName(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Role (Read Only)</label><input type="text" defaultValue="Head Pathologist" readOnly className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 outline-none" /></div>
+                  <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Save Profile</button>
+                </form>
+              ) : settingsModal === 'Account Settings' ? (
+                <form onSubmit={(e) => { e.preventDefault(); setAdminData({...adminData, email: tempEmail}); alert('Email updated permanently!'); }} className="space-y-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label><input required type="email" value={tempEmail} onChange={e => setTempEmail(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                  <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Update Email</button>
+                </form>
               ) : settingsModal === 'Security' ? (
-                <div className="space-y-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label><input type="password" placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">New Password</label><input type="password" placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <button onClick={() => alert('Password updated securely!')} className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800">Update Password</button>
-                </div>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (currentPwd !== adminData.password) { alert('Incorrect current password.'); return; }
+                  if (!newPwd) { alert('New password cannot be empty.'); return; }
+                  setAdminData({...adminData, password: newPwd});
+                  setCurrentPwd(''); setNewPwd('');
+                  alert('Password updated permanently. Please use the new password on your next login.');
+                }} className="space-y-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label><input required type="password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">New Password</label><input required type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                  <button type="submit" className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 shadow-sm">Update Password</button>
+                </form>
               ) : settingsModal === 'System Preferences' ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                    <div><div className="font-medium text-slate-900 text-sm">Email Notifications</div><div className="text-xs text-slate-500">Receive alerts for critical results</div></div>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600" />
+                    <div><div className="font-medium text-slate-900 text-sm">Dark Mode</div><div className="text-xs text-slate-500">Enable high-contrast dark theme</div></div>
+                    <button onClick={handleDarkMode} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition-colors border border-slate-300">Toggle Theme</button>
                   </div>
                   <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                    <div><div className="font-medium text-slate-900 text-sm">Auto-Refresh Dashboard</div><div className="text-xs text-slate-500">Automatically fetch new data every 60s</div></div>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600" />
+                    <div><div className="font-medium text-slate-900 text-sm">Email Notifications</div><div className="text-xs text-slate-500">Receive alerts for critical results</div></div>
+                    <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
                   </div>
                 </div>
               ) : settingsModal === 'Help Center' ? (
@@ -757,7 +845,7 @@ export default function App() {
                     <strong>Email:</strong> support@axiovital.com
                   </div>
                   <textarea placeholder="Describe your issue..." className="w-full h-24 border border-slate-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
-                  <button onClick={() => alert('Support ticket submitted!')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Submit Ticket</button>
+                  <button onClick={() => alert('Support ticket submitted!')} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Submit Ticket</button>
                 </div>
               ) : null}
             </div>
