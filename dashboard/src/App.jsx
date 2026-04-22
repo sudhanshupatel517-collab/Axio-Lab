@@ -573,9 +573,34 @@ function TestOrdersPage() {
 }
 
 // --- AUTHENTICATION & LOGIN PAGE ---
-function LoginPage({ onLogin, error }) {
+function LoginPage({ onLogin, onRegister, onForgotPassword, error }) {
+  const [view, setView] = useState('login'); // 'login', 'register', 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage('');
+    if (view === 'login') {
+      onLogin(email, password);
+    } else if (view === 'register') {
+      await onRegister(name, email, password);
+      setMessage('Account created! Please log in.');
+      setView('login');
+      setPassword('');
+    } else if (view === 'forgot') {
+      try {
+        await onForgotPassword(email, password);
+        setMessage('Your password has been successfully reset. Please log in.');
+        setView('login');
+        setPassword('');
+      } catch (err) {
+        setMessage('');
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
@@ -584,24 +609,45 @@ function LoginPage({ onLogin, error }) {
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
             <Plus className="w-5 h-5 text-white" />
           </div>
-          AxoVital Admin
+          AxoVital
         </div>
         
-        {error && <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">{error}</div>}
+        {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">{error}</div>}
+        {message && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg font-medium border border-green-100">{message}</div>}
         
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {view === 'register' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+              <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="John Doe" />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
             <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="sarah@axiovital.com" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              {view === 'forgot' ? 'New Password' : 'Password'}
+            </label>
             <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••" />
           </div>
-          <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm">
-            Sign In to Dashboard
+          
+          <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-sm mt-2">
+            {view === 'login' ? 'Sign In' : view === 'register' ? 'Create Account' : 'Reset Password'}
           </button>
         </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500 flex flex-col gap-2">
+          {view === 'login' ? (
+            <>
+              <button type="button" onClick={() => { setView('forgot'); setMessage(''); }} className="text-blue-600 hover:underline">Forgot password?</button>
+              <button type="button" onClick={() => { setView('register'); setMessage(''); }} className="text-blue-600 hover:underline">Don't have an account? Sign up</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => { setView('login'); setMessage(''); }} className="text-blue-600 hover:underline">Back to Sign In</button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -611,28 +657,57 @@ function LoginPage({ onLogin, error }) {
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('isAuthenticated') === 'true');
-  const [adminData, setAdminData] = useState(() => {
-    return JSON.parse(localStorage.getItem('adminData')) || { name: 'Dr. Sarah Admin', email: 'sarah@axiovital.com', password: 'admin' };
-  });
+  const [adminData, setAdminData] = useState(() => JSON.parse(localStorage.getItem('adminData')) || null);
   
   useEffect(() => {
-    localStorage.setItem('adminData', JSON.stringify(adminData));
+    if (adminData) localStorage.setItem('adminData', JSON.stringify(adminData));
+    else localStorage.removeItem('adminData');
   }, [adminData]);
 
   const [loginError, setLoginError] = useState('');
-  const handleLogin = (email, password) => {
-    if (email === adminData.email && password === adminData.password) {
-      setIsAuthenticated(true);
-      localStorage.setItem('isAuthenticated', 'true');
-      setLoginError('');
-    } else {
-      setLoginError('Invalid email or password.');
+
+  const handleLogin = async (email, password) => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsAuthenticated(true);
+        localStorage.setItem('isAuthenticated', 'true');
+        setAdminData(data.user);
+        setLoginError('');
+      } else {
+        setLoginError(data.message || 'Login failed');
+      }
+    } catch (err) {
+      setLoginError('Server error connecting to database');
     }
+  };
+
+  const handleRegister = async (name, email, password) => {
+    const res = await fetch('/api/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+  };
+
+  const handleForgotPassword = async (email, newPassword) => {
+    const res = await fetch('/api/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, newPassword })
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('isAuthenticated');
+    setAdminData(null);
     setActiveMenu(null);
   };
 
@@ -648,10 +723,39 @@ export default function App() {
 
   const openModal = (tab) => {
     setSettingsModal(tab);
-    setTempName(adminData.name);
-    setTempEmail(adminData.email);
+    setTempName(adminData?.name || '');
+    setTempEmail(adminData?.email || '');
     setCurrentPwd('');
     setNewPwd('');
+  };
+
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    const res = await fetch(`/api/users/${adminData.id}/profile`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: tempName, email: tempEmail })
+    });
+    const data = await res.json();
+    if (data.success) {
+      setAdminData(data.user);
+      alert('Profile updated successfully!');
+    }
+  };
+
+  const updatePassword = async (e) => {
+    e.preventDefault();
+    if (!newPwd) return alert('New password cannot be empty.');
+    const res = await fetch(`/api/users/${adminData.id}/password`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('Password updated successfully!');
+      setCurrentPwd(''); setNewPwd('');
+    } else {
+      alert(data.message || 'Failed to update password');
+    }
   };
 
   const [notifications, setNotifications] = useState([
@@ -681,8 +785,8 @@ export default function App() {
     }
   };
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} error={loginError} />;
+  if (!isAuthenticated || !adminData) {
+    return <LoginPage onLogin={handleLogin} onRegister={handleRegister} onForgotPassword={handleForgotPassword} error={loginError} />;
   }
 
   return (
@@ -803,25 +907,18 @@ export default function App() {
               <h2 className="text-xl font-bold text-slate-900 mb-6">{settingsModal}</h2>
               
               {settingsModal === 'Profile Settings' ? (
-                <form onSubmit={(e) => { e.preventDefault(); setAdminData({...adminData, name: tempName}); alert('Profile saved permanently!'); }} className="space-y-4">
+                <form onSubmit={saveProfile} className="space-y-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label><input required type="text" value={tempName} onChange={e => setTempName(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Role (Read Only)</label><input type="text" defaultValue="Head Pathologist" readOnly className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 outline-none" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Role (Read Only)</label><input type="text" defaultValue={adminData.role} readOnly className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-500 outline-none" /></div>
                   <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Save Profile</button>
                 </form>
               ) : settingsModal === 'Account Settings' ? (
-                <form onSubmit={(e) => { e.preventDefault(); setAdminData({...adminData, email: tempEmail}); alert('Email updated permanently!'); }} className="space-y-4">
+                <form onSubmit={saveProfile} className="space-y-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label><input required type="email" value={tempEmail} onChange={e => setTempEmail(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                   <button type="submit" className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">Update Email</button>
                 </form>
               ) : settingsModal === 'Security' ? (
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  if (currentPwd !== adminData.password) { alert('Incorrect current password.'); return; }
-                  if (!newPwd) { alert('New password cannot be empty.'); return; }
-                  setAdminData({...adminData, password: newPwd});
-                  setCurrentPwd(''); setNewPwd('');
-                  alert('Password updated permanently. Please use the new password on your next login.');
-                }} className="space-y-4">
+                <form onSubmit={updatePassword} className="space-y-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label><input required type="password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">New Password</label><input required type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="••••••••" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                   <button type="submit" className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 shadow-sm">Update Password</button>

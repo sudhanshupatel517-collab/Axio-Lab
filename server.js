@@ -16,16 +16,69 @@ app.get('/api', (req, res) => {
     res.json({ message: "API is working" });
 });
 
-// Authentication
+// Authentication & User Management
 app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
     try {
-        const row = db.prepare("SELECT id, username, role, name FROM users WHERE username = ? AND password = ?").get(username, password);
+        const row = db.prepare("SELECT id, email, role, name FROM users WHERE email = ? AND password = ?").get(email, password);
         if (row) {
             res.json({ success: true, user: row });
         } else {
-            res.status(401).json({ success: false, message: 'Invalid credentials' });
+            res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/register', (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+        const info = db.prepare("INSERT INTO users (email, password, role, name) VALUES (?, ?, 'Admin', ?)").run(email, password, name);
+        res.json({ success: true, user: { id: info.lastInsertRowid, email, name, role: 'Admin' } });
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+            res.status(400).json({ success: false, message: 'Email already exists' });
+        } else {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
+app.post('/api/forgot-password', (req, res) => {
+    const { email, newPassword } = req.body;
+    try {
+        const info = db.prepare("UPDATE users SET password = ? WHERE email = ?").run(newPassword, email);
+        if (info.changes > 0) {
+            res.json({ success: true, message: 'Password updated successfully' });
+        } else {
+            res.status(404).json({ success: false, message: 'Email not found' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/users/:id/profile', (req, res) => {
+    const { name, email } = req.body;
+    try {
+        db.prepare("UPDATE users SET name = ?, email = ? WHERE id = ?").run(name, email, req.params.id);
+        const updated = db.prepare("SELECT id, email, role, name FROM users WHERE id = ?").get(req.params.id);
+        res.json({ success: true, user: updated });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/users/:id/password', (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    try {
+        const row = db.prepare("SELECT password FROM users WHERE id = ?").get(req.params.id);
+        if (row.password !== currentPassword) {
+            return res.status(401).json({ success: false, message: 'Incorrect current password' });
+        }
+        db.prepare("UPDATE users SET password = ? WHERE id = ?").run(newPassword, req.params.id);
+        res.json({ success: true, message: 'Password updated successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

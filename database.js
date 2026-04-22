@@ -5,7 +5,7 @@ const fs = require('fs');
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 
 // Remove existing DB to ensure clean state with new architecture (optional, based on previous logic)
-if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+// if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath); // Commented out to ensure persistent users!
 
 // create or open database
 const db = new Database(dbPath);
@@ -14,7 +14,7 @@ const db = new Database(dbPath);
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
+        email TEXT UNIQUE,
         password TEXT,
         role TEXT,
         name TEXT
@@ -40,7 +40,7 @@ db.exec(`
 
 // Insert default admin user if not exists
 try {
-    db.prepare("INSERT INTO users (username, password, role, name) VALUES ('admin', 'admin123', 'Admin', 'Default Admin')").run();
+    db.prepare("INSERT INTO users (email, password, role, name) VALUES ('sarah@axiovital.com', 'admin', 'Admin', 'Dr. Sarah Admin')").run();
 } catch (e) {
     // Ignore if exists
 }
