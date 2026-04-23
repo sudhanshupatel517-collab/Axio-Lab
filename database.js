@@ -1,71 +1,64 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const mongoose = require('mongoose');
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+// The password contains a '#' which is a special character in URLs. 
+// It has been replaced with its URL-encoded equivalent: %23
+const mongoURI = 'mongodb+srv://sudhanshupatel517:Sudhanshu%23123@axiolab.yimkutq.mongodb.net/?appName=AXIOLAB';
 
-// Remove existing DB to ensure clean state with new architecture (optional, based on previous logic)
-// if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath); // Commented out to ensure persistent users!
+mongoose.connect(mongoURI)
+    .then(() => console.log('MongoDB Connected successfully to Atlas'))
+    .catch(err => console.log('MongoDB connection error:', err));
 
-// create or open database
-const db = new Database(dbPath);
+const userSchema = new mongoose.Schema({
+    email: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+    role: { type: String, default: 'Admin' },
+    name: { type: String }
+});
 
-// Initialize Schema
-db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        password TEXT,
-        role TEXT,
-        name TEXT
-    );
-    
-    CREATE TABLE IF NOT EXISTS requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        axiovitalId TEXT UNIQUE,
-        name TEXT,
-        age INTEGER,
-        gender TEXT,
-        disease TEXT,
-        collectionMethod TEXT,
-        paymentStatus TEXT,
-        paymentAmount REAL,
-        pin TEXT,
-        status TEXT DEFAULT 'Requested',
-        reportFile TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-`);
+const requestSchema = new mongoose.Schema({
+    axiovitalId: { type: String, unique: true },
+    name: String,
+    age: Number,
+    gender: String,
+    disease: String,
+    collectionMethod: String,
+    paymentStatus: String,
+    paymentAmount: Number,
+    pin: String,
+    status: { type: String, default: 'Requested' },
+    reportFile: String
+}, { timestamps: true });
 
-// Insert default admin user if not exists
-try {
-    db.prepare("INSERT INTO users (email, password, role, name) VALUES ('sarah@axiovital.com', 'admin', 'Admin', 'Dr. Sarah Admin')").run();
-} catch (e) {
-    // Ignore if exists
-}
+const User = mongoose.model('User', userSchema);
+const Request = mongoose.model('Request', requestSchema);
 
-// Seed dummy requests from User App
-const dummyRequests = [
-    { id: 'AXV-9012', name: 'John Doe', age: 45, gender: 'Male', disease: 'Complete Blood Count (CBC)', method: 'Walk-in', payment: 'Paid', status: 'Requested' },
-    { id: 'AXV-7734', name: 'Maria Garcia', age: 32, gender: 'Female', disease: 'Lipid Profile', method: 'Home Collection', payment: 'Pending', status: 'Requested' },
-    { id: 'AXV-6591', name: 'Robert Smith', age: 58, gender: 'Male', disease: 'HbA1c Diabetes', method: 'Walk-in', payment: 'Paid', status: 'Requested' },
-    { id: 'AXV-8833', name: 'Patricia Brown', age: 41, gender: 'Female', disease: 'Thyroid Profile', method: 'Walk-in', payment: 'Paid', status: 'Approved' },
-    { id: 'AXV-5511', name: 'David Taylor', age: 48, gender: 'Male', disease: 'Uric Acid Test', method: 'Walk-in', payment: 'Paid', status: 'Processing' },
-    { id: 'AXV-3344', name: 'Charles Harris', age: 59, gender: 'Male', disease: 'Thyroid Profile', method: 'Walk-in', payment: 'Paid', status: 'Completed' }
-];
+// Seed default admin user and dummy data
+const seedData = async () => {
+    try {
+        const adminExists = await User.findOne({ email: 'sarah@axiovital.com' });
+        if (!adminExists) {
+            await User.create({ email: 'sarah@axiovital.com', password: 'admin', role: 'Admin', name: 'Dr. Sarah Admin' });
+            console.log('Default admin seeded.');
+        }
 
-const insertReq = db.prepare("INSERT INTO requests (axiovitalId, name, age, gender, disease, collectionMethod, paymentStatus, pin, paymentAmount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        const count = await Request.countDocuments();
+        if (count === 0) {
+            const dummyRequests = [
+                { axiovitalId: 'AXV-9012', name: 'John Doe', age: 45, gender: 'Male', disease: 'Complete Blood Count (CBC)', collectionMethod: 'Walk-in', paymentStatus: 'Paid', status: 'Requested', paymentAmount: 45, pin: '1234' },
+                { axiovitalId: 'AXV-7734', name: 'Maria Garcia', age: 32, gender: 'Female', disease: 'Lipid Profile', collectionMethod: 'Home Collection', paymentStatus: 'Pending', status: 'Requested', paymentAmount: 0, pin: '5678' },
+                { axiovitalId: 'AXV-6591', name: 'Robert Smith', age: 58, gender: 'Male', disease: 'HbA1c Diabetes', collectionMethod: 'Walk-in', paymentStatus: 'Paid', status: 'Requested', paymentAmount: 45, pin: '9012' },
+                { axiovitalId: 'AXV-8833', name: 'Patricia Brown', age: 41, gender: 'Female', disease: 'Thyroid Profile', collectionMethod: 'Walk-in', paymentStatus: 'Paid', status: 'Approved', paymentAmount: 45, pin: '3456' },
+                { axiovitalId: 'AXV-5511', name: 'David Taylor', age: 48, gender: 'Male', disease: 'Uric Acid Test', collectionMethod: 'Walk-in', paymentStatus: 'Paid', status: 'Processing', paymentAmount: 45, pin: '7890' },
+                { axiovitalId: 'AXV-3344', name: 'Charles Harris', age: 59, gender: 'Male', disease: 'Thyroid Profile', collectionMethod: 'Walk-in', paymentStatus: 'Paid', status: 'Completed', paymentAmount: 45, pin: '2345' }
+            ];
+            await Request.insertMany(dummyRequests);
+            console.log('Dummy requests seeded.');
+        }
+    } catch (e) {
+        console.error('Seeding error:', e);
+    }
+};
 
-db.transaction(() => {
-    dummyRequests.forEach(r => {
-        try {
-            const pin = Math.floor(1000 + Math.random() * 9000).toString();
-            const amt = r.payment === 'Paid' ? 45 : 0;
-            insertReq.run(r.id, r.name, r.age, r.gender, r.disease, r.method, r.payment, pin, amt, r.status);
-        } catch (e) {}
-    });
-})();
+seedData();
 
-// export it
-module.exports = db;
+module.exports = { User, Request };

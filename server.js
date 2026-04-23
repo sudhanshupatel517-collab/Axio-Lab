@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const db = require('./database');
+const { User, Request } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,12 +17,14 @@ app.get('/api', (req, res) => {
 });
 
 // Authentication & User Management
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const row = db.prepare("SELECT id, email, role, name FROM users WHERE email = ? AND password = ?").get(email, password);
-        if (row) {
-            res.json({ success: true, user: row });
+        const user = await User.findOne({ email, password }).select('-password');
+        if (user) {
+            // Map _id to id for frontend
+            const userData = { ...user.toObject(), id: user._id };
+            res.json({ success: true, user: userData });
         } else {
             res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
@@ -31,13 +33,13 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { name, email, password } = req.body;
     try {
-        const info = db.prepare("INSERT INTO users (email, password, role, name) VALUES (?, ?, 'Admin', ?)").run(email, password, name);
-        res.json({ success: true, user: { id: info.lastInsertRowid, email, name, role: 'Admin' } });
+        const newUser = await User.create({ email, password, role: 'Admin', name });
+        res.json({ success: true, user: { id: newUser._id, email: newUser.email, name: newUser.name, role: newUser.role } });
     } catch (err) {
-        if (err.message.includes('UNIQUE constraint failed')) {
+        if (err.code === 11000) {
             res.status(400).json({ success: false, message: 'Email already exists' });
         } else {
             res.status(500).json({ error: err.message });
@@ -45,11 +47,11 @@ app.post('/api/register', (req, res) => {
     }
 });
 
-app.post('/api/forgot-password', (req, res) => {
+app.post('/api/forgot-password', async (req, res) => {
     const { email, newPassword } = req.body;
     try {
-        const info = db.prepare("UPDATE users SET password = ? WHERE email = ?").run(newPassword, email);
-        if (info.changes > 0) {
+        const result = await User.updateOne({ email }, { password: newPassword });
+        if (result.matchedCount > 0) {
             res.json({ success: true, message: 'Password updated successfully' });
         } else {
             res.status(404).json({ success: false, message: 'Email not found' });
@@ -59,25 +61,33 @@ app.post('/api/forgot-password', (req, res) => {
     }
 });
 
-app.put('/api/users/:id/profile', (req, res) => {
+app.put('/api/users/:id/profile', async (req, res) => {
     const { name, email } = req.body;
     try {
-        db.prepare("UPDATE users SET name = ?, email = ? WHERE id = ?").run(name, email, req.params.id);
-        const updated = db.prepare("SELECT id, email, role, name FROM users WHERE id = ?").get(req.params.id);
-        res.json({ success: true, user: updated });
+        const user = await User.findByIdAndUpdate(req.params.id, { name, email }, { new: true }).select('-password');
+        if (user) {
+            const userData = { ...user.toObject(), id: user._id };
+            res.json({ success: true, user: userData });
+        } else {
+            res.status(404).json({ success: false, message: 'User not found' });
+        }
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.put('/api/users/:id/password', (req, res) => {
+app.put('/api/users/:id/password', async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     try {
-        const row = db.prepare("SELECT password FROM users WHERE id = ?").get(req.params.id);
-        if (row.password !== currentPassword) {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        if (user.password !== currentPassword) {
             return res.status(401).json({ success: false, message: 'Incorrect current password' });
         }
-        db.prepare("UPDATE users SET password = ? WHERE id = ?").run(newPassword, req.params.id);
+        user.password = newPassword;
+        await user.save();
         res.json({ success: true, message: 'Password updated successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -85,75 +95,67 @@ app.put('/api/users/:id/password', (req, res) => {
 });
 
 // --- Unified Requests API ---
-app.get('/api/requests', (req, res) => {
+app.get('/api/requests', async (req, res) => {
     const status = req.query.status;
-    let query = "SELECT * FROM requests";
-    let params = [];
+    let query = {};
     
     if (status) {
         const statuses = status.split(',');
-        const placeholders = statuses.map(() => '?').join(',');
-        query += ` WHERE status IN (${placeholders})`;
-        params = statuses;
+        query.status = { $in: statuses };
     }
-    query += " ORDER BY updatedAt DESC";
-
+    
     try {
-        const rows = db.prepare(query).all(...params);
-        res.json({ requests: rows });
+        const requests = await Request.find(query).sort({ updatedAt: -1 });
+        const mappedRequests = requests.map(r => ({ ...r.toObject(), id: r._id }));
+        res.json({ requests: mappedRequests });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.put('/api/requests/:id/status', (req, res) => {
+app.put('/api/requests/:id/status', async (req, res) => {
     const { status, reportFile } = req.body;
     const reqId = req.params.id;
     
-    let query = "UPDATE requests SET status = ?, updatedAt = CURRENT_TIMESTAMP";
-    let params = [status];
-    
+    let updateData = { status };
     if (reportFile) {
-        query += ", reportFile = ?";
-        params.push(reportFile);
+        updateData.reportFile = reportFile;
     }
     
-    query += " WHERE id = ?";
-    params.push(reqId);
-
     try {
-        const info = db.prepare(query).run(...params);
-        res.json({ success: true, changes: info.changes });
+        const result = await Request.updateOne({ _id: reqId }, updateData);
+        res.json({ success: true, changes: result.modifiedCount });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/requests', (req, res) => {
+app.post('/api/requests', async (req, res) => {
     const { name, age, gender, disease, collectionMethod, paymentStatus, paymentAmount } = req.body;
     const axiovitalId = 'AXV-' + Math.floor(1000 + Math.random() * 9000);
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
     const status = 'Requested';
 
-    const query = "INSERT INTO requests (axiovitalId, name, age, gender, disease, collectionMethod, paymentStatus, pin, paymentAmount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     try {
-        const info = db.prepare(query).run(axiovitalId, name, age, gender, disease, collectionMethod, paymentStatus, pin, paymentAmount || 0, status);
-        res.json({ success: true, id: info.lastInsertRowid, axiovitalId });
+        const newRequest = await Request.create({
+            axiovitalId, name, age, gender, disease, collectionMethod, paymentStatus, pin, paymentAmount: paymentAmount || 0, status
+        });
+        res.json({ success: true, id: newRequest._id, axiovitalId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 // Validation endpoint to check PIN for "Lab Processing" section
-app.post('/api/requests/validate', (req, res) => {
+app.post('/api/requests/validate', async (req, res) => {
     const { axiovitalId, pin } = req.body;
     try {
-        const row = db.prepare("SELECT id, status FROM requests WHERE axiovitalId = ? AND pin = ?").get(axiovitalId, pin);
-        if (row) {
-            if (row.status !== 'In Test') {
+        const request = await Request.findOne({ axiovitalId, pin });
+        if (request) {
+            if (request.status !== 'In Test') {
                 return res.json({ success: false, message: 'Request is not in the correct state to be processed.' });
             }
-            res.json({ success: true, requestId: row.id });
+            res.json({ success: true, requestId: request._id });
         } else {
             res.json({ success: false, message: 'Invalid AxioVital ID or PIN.' });
         }
@@ -163,7 +165,7 @@ app.post('/api/requests/validate', (req, res) => {
 });
 
 // --- Dashboard Analytics ---
-app.get('/api/dashboard/stats', (req, res) => {
+app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const stats = {
             statuses: { Requested: 0, Approved: 0, Processing: 0, Completed: 0, 'Report Sent': 0 },
@@ -171,15 +173,20 @@ app.get('/api/dashboard/stats', (req, res) => {
             timeline: {}
         };
 
-        const rows = db.prepare("SELECT status, disease, createdAt FROM requests").all();
+        const requests = await Request.find({});
         
-        rows.forEach(r => {
+        requests.forEach(r => {
             if (stats.statuses[r.status] !== undefined) {
                 stats.statuses[r.status]++;
+            } else {
+                stats.statuses[r.status] = 1;
             }
-            stats.testTypes[r.disease] = (stats.testTypes[r.disease] || 0) + 1;
+
+            if (r.disease) {
+                stats.testTypes[r.disease] = (stats.testTypes[r.disease] || 0) + 1;
+            }
             
-            const dateOnly = r.createdAt ? r.createdAt.split(' ')[0] : 'Unknown';
+            const dateOnly = r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : 'Unknown';
             stats.timeline[dateOnly] = (stats.timeline[dateOnly] || 0) + 1;
         });
         
@@ -195,6 +202,6 @@ app.use((req, res) => {
 });
 
 // Start Server
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
