@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 
@@ -21,9 +22,12 @@ app.use('/auth', require('./routes/authRoutes'));
 app.use('/reports', require('./routes/reportRoutes'));
 app.use('/appointments', require('./routes/appointmentRoutes'));
 
-// Basic route for testing server
-app.get('/', (req, res) => {
-    res.send('Axio Healthcare Platform API is running...');
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve React Frontend (Universal Fallback for SPA)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Global error handling middleware
