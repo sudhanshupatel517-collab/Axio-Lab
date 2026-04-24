@@ -111,8 +111,36 @@ const updatePassword = async (req, res) => {
     }
 };
 
+// @desc    Forgot password (direct reset for demo)
+// @route   POST /auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+
+        if (!email || !newPassword) {
+            return res.status(400).json({ message: 'Please provide email and new password' });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Email not found' });
+        }
+
+        // Update to new password
+        user.password = newPassword; // Will be hashed by pre-save hook
+        await user.save();
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     signup,
     login,
-    updatePassword
+    updatePassword,
+    forgotPassword
 };

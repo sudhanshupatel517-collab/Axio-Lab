@@ -750,7 +750,7 @@ export default function App() {
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         setIsAuthenticated(true);
         localStorage.setItem('isAuthenticated', 'true'); localStorage.setItem('token', data.token);
         setAdminData({ id: data._id, name: data.name, email: data.email, role: data.role });
@@ -769,16 +769,16 @@ export default function App() {
       body: JSON.stringify({ name, email, password, role: 'hospital' })
     });
     const data = await res.json();
-    if (!data.success) throw new Error(data.message);
+    if (!res.ok) throw new Error(data.message || 'Registration failed');
   };
 
   const handleForgotPassword = async (email, newPassword) => {
-    const res = await fetch('/auth/update-password', {
+    const res = await fetch('/auth/forgot-password', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, newPassword })
     });
     const data = await res.json();
-    if (!data.success) throw new Error(data.message);
+    if (!res.ok) throw new Error(data.message || 'Password reset failed');
   };
 
   const handleLogout = () => {
