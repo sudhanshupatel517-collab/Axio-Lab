@@ -379,8 +379,34 @@ function TestOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [filters, setFilters] = useState({ type: 'All', source: 'All' });
+  const [activeDropdown, setActiveDropdown] = useState(null);
+
+  const [isIncomingRequestsModalOpen, setIsIncomingRequestsModalOpen] = useState(false);
+  const [incomingRequests, setIncomingRequests] = useState([
+    { id: 'INC-101', name: 'Alice Walker', age: 29, gender: 'Female', disease: 'Complete Blood Count (CBC)', collectionMethod: 'Walk-in', paymentStatus: 'Paid', paymentAmount: 45 },
+    { id: 'INC-102', name: 'Michael Chen', age: 42, gender: 'Male', disease: 'Lipid Profile', collectionMethod: 'Home Collection', paymentStatus: 'Pending', paymentAmount: 0 },
+    { id: 'INC-103', name: 'Sarah Jenkins', age: 35, gender: 'Female', disease: 'Thyroid Profile', collectionMethod: 'Walk-in', paymentStatus: 'Paid', paymentAmount: 45 },
+    { id: 'INC-104', name: 'James Wilson', age: 55, gender: 'Male', disease: 'Urinalysis', collectionMethod: 'Walk-in', paymentStatus: 'Paid', paymentAmount: 25 },
+    { id: 'INC-105', name: 'Emily Davis', age: 24, gender: 'Female', disease: 'HbA1c Diabetes', collectionMethod: 'Home Collection', paymentStatus: 'Paid', paymentAmount: 55 },
+    { id: 'INC-106', name: 'Robert Fox', age: 61, gender: 'Male', disease: 'Liver Function Test', collectionMethod: 'Walk-in', paymentStatus: 'Pending', paymentAmount: 0 },
+    { id: 'INC-107', name: 'Linda Martinez', age: 48, gender: 'Female', disease: 'Complete Blood Count (CBC)', collectionMethod: 'Walk-in', paymentStatus: 'Paid', paymentAmount: 45 },
+  ]);
+
+  const handleAcceptRequest = (req) => {
+    fetch('/api/requests', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req)
+    }).then(() => { 
+        setIncomingRequests(incomingRequests.filter(r => r.id !== req.id));
+        fetchData(); 
+    });
+  };
+
+  const handleRejectRequest = (id) => {
+    setIncomingRequests(incomingRequests.filter(r => r.id !== id));
+  };
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [filters, setFilters] = useState({ type: 'All', source: 'All' });
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -420,15 +446,7 @@ function TestOrdersPage() {
     });
   }
 
-  const handleCreateOrder = (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const orderData = Object.fromEntries(formData.entries());
-    orderData.paymentAmount = orderData.paymentStatus === 'Paid' ? 45 : 0;
-    fetch('/api/requests', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData)
-    }).then(() => { setIsNewOrderModalOpen(false); fetchData(); });
-  };
+  // Create Order function removed in favor of Incoming Requests
 
   const updateStatus = (id, status) => {
     fetch(`/api/requests/${id}/status`, {
@@ -443,8 +461,8 @@ function TestOrdersPage() {
           <h1 className="text-3xl font-bold text-slate-900">Test Orders</h1>
           <div className="text-sm font-medium text-slate-500"><span className="text-emerald-600 font-bold text-lg">{tabCounts.completed}</span> / {tabCounts.all} Completed</div>
         </div>
-        <button onClick={() => setIsNewOrderModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-colors">
-          <Plus className="w-4 h-4" /> New Order
+        <button onClick={() => setIsIncomingRequestsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-colors">
+          <Bell className="w-4 h-4" /> Requests {incomingRequests.length > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{incomingRequests.length}</span>}
         </button>
       </div>
 
@@ -530,25 +548,31 @@ function TestOrdersPage() {
         </div>
       </div>
 
-      {isNewOrderModalOpen && (
+      {isIncomingRequestsModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-[95%] max-w-lg overflow-y-auto max-h-[90vh]">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100"><h3 className="font-semibold text-lg">Create New Order</h3><button onClick={() => setIsNewOrderModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button></div>
-            <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-slate-500 mb-1">Patient Name</label><input required name="name" type="text" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                <div className="flex gap-2">
-                  <div className="flex-1"><label className="block text-xs font-medium text-slate-500 mb-1">Age</label><input required name="age" type="number" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                  <div className="flex-1"><label className="block text-xs font-medium text-slate-500 mb-1">Gender</label><select name="gender" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option>Male</option><option>Female</option></select></div>
-                </div>
-              </div>
-              <div><label className="block text-xs font-medium text-slate-500 mb-1">Test Type</label><select name="disease" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option>Complete Blood Count (CBC)</option><option>Lipid Profile</option><option>Thyroid Profile</option><option>Urinalysis</option></select></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-slate-500 mb-1">Source</label><select name="collectionMethod" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option>Walk-in</option><option>Home Collection</option></select></div>
-                <div><label className="block text-xs font-medium text-slate-500 mb-1">Payment</label><select name="paymentStatus" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"><option>Paid</option><option>Pending</option></select></div>
-              </div>
-              <div className="pt-4 flex justify-end gap-2"><button type="button" onClick={() => setIsNewOrderModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Submit</button></div>
-            </form>
+          <div className="bg-white rounded-xl shadow-xl w-[95%] max-w-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <h3 className="font-semibold text-lg">Incoming Requests</h3>
+              <button onClick={() => setIsIncomingRequestsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              {incomingRequests.length === 0 ? (
+                <div className="text-center p-8 text-slate-500">No new requests</div>
+              ) : (
+                incomingRequests.map(req => (
+                  <div key={req.id} className="border border-slate-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-blue-300 transition-colors">
+                    <div>
+                      <div className="font-bold text-slate-900">{req.name} <span className="text-sm font-normal text-slate-500 ml-2">{req.age}y / {req.gender}</span></div>
+                      <div className="text-sm text-slate-600 mt-1">Test: <span className="font-medium text-slate-800">{req.disease}</span></div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
+                      <button onClick={() => handleRejectRequest(req.id)} className="flex-1 md:flex-none px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors">Reject</button>
+                      <button onClick={() => handleAcceptRequest(req)} className="flex-1 md:flex-none px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4"/> Accept</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -583,13 +607,22 @@ function LoginPage({ onLogin, onRegister, onForgotPassword, error }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
-    if (view === 'login') {
+    
+    if (view === 'register') {
+      if (!email.toLowerCase().endsWith('@axiovital.com')) {
+        alert("Please try using an @axiovital.com email.");
+        return;
+      }
+      try {
+        await onRegister(name, email, password);
+        setMessage('Account created! Please log in.');
+        setView('login');
+        setPassword('');
+      } catch (err) {
+        alert(err.message || 'Registration failed');
+      }
+    } else if (view === 'login') {
       onLogin(email, password);
-    } else if (view === 'register') {
-      await onRegister(name, email, password);
-      setMessage('Account created! Please log in.');
-      setView('login');
-      setPassword('');
     } else if (view === 'forgot') {
       try {
         await onForgotPassword(email, password);
@@ -605,11 +638,8 @@ function LoginPage({ onLogin, onRegister, onForgotPassword, error }) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
-        <div className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-slate-900 mb-8">
-          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-            <Plus className="w-5 h-5 text-white" />
-          </div>
-          AxoVital
+        <div className="flex items-center justify-center mb-8">
+          <img src="/logo.png" alt="Axiolab Logo" className="h-16 object-contain" />
         </div>
         
         {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">{error}</div>}
@@ -795,14 +825,11 @@ export default function App() {
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4 md:gap-8 lg:gap-12">
-            <div className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
+            <div className="flex items-center gap-2">
               <button className="md:hidden p-1 -ml-2 text-slate-600 hover:text-slate-900" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 <Menu className="w-6 h-6" />
               </button>
-              <div className="w-6 h-6 bg-slate-900 rounded-md flex items-center justify-center">
-                <Plus className="w-4 h-4 text-white" />
-              </div>
-              AxoVital
+              <img src="/logo.png" alt="Axiolab Logo" className="h-10 object-contain" />
             </div>
             
             <div className="hidden md:flex items-center gap-1 text-sm font-medium text-slate-500">
