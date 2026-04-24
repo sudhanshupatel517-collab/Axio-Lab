@@ -407,9 +407,7 @@ function TestOrdersPage() {
   const handleRejectRequest = (id) => {
     setIncomingRequests(incomingRequests.filter(r => r.id !== id));
   };
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [filters, setFilters] = useState({ type: 'All', source: 'All' });
-  const [activeDropdown, setActiveDropdown] = useState(null);
+
 
   const fetchData = () => {
     fetch('/api/requests')
