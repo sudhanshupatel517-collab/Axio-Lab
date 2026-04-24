@@ -766,7 +766,7 @@ export default function App() {
   const handleRegister = async (name, email, password) => {
     const res = await fetch('/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role: 'hospital' })
+      body: JSON.stringify({ name, email, password, role: 'lab' })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Registration failed');
