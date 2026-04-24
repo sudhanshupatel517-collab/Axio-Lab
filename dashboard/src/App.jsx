@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Bell, Search, SlidersHorizontal, ChevronDown, ChevronRight, Plus, 
   Activity, User, FlaskConical, Clock, CheckCircle2, X, BarChart3, FileText, 
-  TestTube2, ArrowRight, Download, Beaker
+  TestTube2, ArrowRight, Download, Beaker, Menu
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -169,7 +169,7 @@ function SamplesPage() {
         </div>
       </div>
       
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
@@ -332,7 +332,7 @@ function ReportsPage() {
         </div>
       </div>
       
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
@@ -532,7 +532,7 @@ function TestOrdersPage() {
 
       {isNewOrderModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-[95%] max-w-lg overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between p-4 border-b border-slate-100"><h3 className="font-semibold text-lg">Create New Order</h3><button onClick={() => setIsNewOrderModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button></div>
             <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -555,7 +555,7 @@ function TestOrdersPage() {
 
       {selectedOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl w-[95%] max-w-md overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-slate-100"><h3 className="font-semibold text-lg">Manage Order: {selectedOrder.axiovitalId}</h3><button onClick={() => setSelectedOrder(null)} className="text-slate-400"><X className="w-5 h-5" /></button></div>
             <div className="p-6">
               <p className="text-sm text-slate-600 mb-4">Update status for <strong>{selectedOrder.name}</strong>.</p>
@@ -714,6 +714,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('Test Orders');
   const [activeMenu, setActiveMenu] = useState(null);
   const [settingsModal, setSettingsModal] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Settings Form State
   const [tempName, setTempName] = useState('');
@@ -793,8 +794,11 @@ export default function App() {
     <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans pb-12">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8 lg:gap-12">
+          <div className="flex items-center gap-4 md:gap-8 lg:gap-12">
             <div className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900">
+              <button className="md:hidden p-1 -ml-2 text-slate-600 hover:text-slate-900" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                <Menu className="w-6 h-6" />
+              </button>
               <div className="w-6 h-6 bg-slate-900 rounded-md flex items-center justify-center">
                 <Plus className="w-4 h-4 text-white" />
               </div>
@@ -877,7 +881,23 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-[1400px] mx-auto px-6 pt-8">
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 space-y-2 absolute w-full z-30 shadow-lg">
+          {['Overview', 'Test Orders', 'Samples', 'Processing', 'Reports'].map((item) => (
+            <button
+              key={item}
+              onClick={() => { setCurrentPage(item); setIsMobileMenuOpen(false); }}
+              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                currentPage === item ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
         {currentPage === 'Overview' && <OverviewPage />}
         {currentPage === 'Test Orders' && <TestOrdersPage />}
         {currentPage === 'Samples' && <SamplesPage />}
@@ -887,20 +907,18 @@ export default function App() {
 
       {settingsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex h-[500px]">
-            <div className="w-64 bg-slate-50 border-r border-slate-100 p-4">
-              <h3 className="font-bold text-slate-900 mb-4 px-2">Settings Menu</h3>
-              <div className="space-y-1">
-                {['Profile Settings', 'System Preferences', 'Security', 'Account Settings', 'Help Center'].map(tab => (
-                  <button 
-                    key={tab} 
-                    onClick={() => openModal(tab)} 
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${settingsModal === tab ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+          <div className="bg-white rounded-2xl shadow-xl w-[95%] max-w-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-[500px]">
+            <div className="w-full md:w-64 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 p-4 overflow-x-auto flex md:block whitespace-nowrap gap-2 md:space-y-1 hide-scrollbar">
+              <h3 className="hidden md:block font-bold text-slate-900 mb-4 px-2">Settings Menu</h3>
+              {['Profile Settings', 'System Preferences', 'Security', 'Account Settings', 'Help Center'].map(tab => (
+                <button 
+                  key={tab} 
+                  onClick={() => openModal(tab)} 
+                  className={`inline-block md:w-full md:text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${settingsModal === tab ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
             <div className="flex-1 p-6 relative overflow-y-auto">
               <button onClick={() => setSettingsModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
