@@ -25,9 +25,18 @@ app.use('/appointments', require('./routes/appointmentRoutes'));
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve React Frontend (Universal Fallback for SPA)
-app.get('/*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Fallback catch-all middleware for unknown routes
+app.use((req, res) => {
+    // If request accepts html, it's likely a browser hitting a frontend route directly
+    if (req.accepts('html') && !req.url.startsWith('/api/') && !req.url.startsWith('/auth/') && !req.url.startsWith('/reports/') && !req.url.startsWith('/appointments/')) {
+        return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+    
+    // Otherwise return API 404 response
+    res.status(404).json({
+        success: false,
+        message: "Route not found"
+    });
 });
 
 // Global error handling middleware
