@@ -40,9 +40,21 @@ function OverviewPage() {
   const [stats, setStats] = useState(null);
   
   useEffect(() => {
-    fetch('/api/dashboard/stats')
+    fetch('/reports', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } })
       .then(res => res.json())
-      .then(data => setStats(data))
+      .then(data => {
+        const statuses = { Requested: 0, Processing: 0, Approved: 0, Completed: 0 };
+        const testTypes = {};
+        if (Array.isArray(data)) {
+          data.forEach(r => {
+             const st = r.status === 'pending' ? 'Requested' : r.status === 'reviewed' ? 'Approved' : 'Completed';
+             statuses[st] = (statuses[st] || 0) + 1;
+             const type = r.reportData || 'General Test';
+             testTypes[type] = (testTypes[type] || 0) + 1;
+          });
+        }
+        setStats({ statuses, testTypes, timeline: {} });
+      })
       .catch(console.error);
   }, []);
 
@@ -145,18 +157,29 @@ function SamplesPage() {
   const [data, setData] = useState([]);
   
   const fetchSamples = () => {
-    fetch('/api/requests?status=Requested,Approved')
+    fetch('/reports', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } })
       .then(res => res.json())
-      .then(res => setData(res.requests || []));
+      .then(res => {
+        if (!Array.isArray(res)) return setData([]);
+        const mapped = res.filter(r => r.status === 'pending' || r.status === 'reviewed').map(r => ({
+          id: r._id,
+          axiovitalId: r._id.substring(r._id.length - 8).toUpperCase(),
+          name: r.patientId ? r.patientId.name : 'Unknown',
+          disease: r.reportData || 'General Test',
+          collectionMethod: 'Walk-in',
+          status: 'Requested'
+        }));
+        setData(mapped);
+      });
   };
 
   useEffect(() => fetchSamples(), []);
 
   const handleCollect = (id) => {
-    fetch(`/api/requests/${id}/status`, {
+    fetch(`/reports/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'Processing' })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') }, body: JSON.stringify({ status: 'reviewed' })
     }).then(() => fetchSamples());
   };
 
@@ -211,7 +234,7 @@ function ProcessingPage() {
     e.preventDefault();
     setError('');
     // By user request: We are using a dummy model, so take anything as correct and move forward.
-    fetch(`/api/requests`).then(r => r.json()).then(all => {
+    fetch(`/reports`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } }).then(r => r.json()).then(res => { const all = { requests: (res||[]).map(r => ({ id: r._id, axiovitalId: r._id.substring(r._id.length - 8).toUpperCase(), disease: r.reportData, name: r.patientId?.name })) };
       let req = all.requests.find(r => r.axiovitalId.toLowerCase() === validationData.id.toLowerCase());
       if (!req && all.requests.length > 0) {
         req = all.requests[0]; // If ID not found, just use the first request as a fallback dummy
@@ -226,10 +249,10 @@ function ProcessingPage() {
 
   const handleCompleteTest = (e) => {
     e.preventDefault();
-    fetch(`/api/requests/${activeTest.id}/status`, {
+    fetch(`/reports/${activeTest.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'Completed', reportFile: 'Report_Generated.pdf' })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') }, body: JSON.stringify({ status: 'completed' })
     }).then(() => {
       setActiveTest(null);
       setValidationData({ id: '', pin: '' });
@@ -291,9 +314,19 @@ function ReportsPage() {
   const [data, setData] = useState([]);
   
   useEffect(() => {
-    fetch('/api/requests?status=Completed')
+    fetch('/reports', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } })
       .then(res => res.json())
-      .then(res => setData(res.requests || []));
+      .then(res => {
+        if (!Array.isArray(res)) return setData([]);
+        const mapped = res.filter(r => r.status === 'completed').map(r => ({
+          id: r._id,
+          axiovitalId: r._id.substring(r._id.length - 8).toUpperCase(),
+          name: r.patientId ? r.patientId.name : 'Unknown',
+          disease: r.reportData || 'General Test',
+          updatedAt: r.updatedAt
+        }));
+        setData(mapped);
+      });
   }, []);
 
   const handleDownload = (row) => {
@@ -410,9 +443,25 @@ function TestOrdersPage() {
 
 
   const fetchData = () => {
-    fetch('/api/requests')
+    fetch('/reports', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') } })
       .then(res => res.json())
-      .then(result => { if (result.requests) setData(result.requests); setIsLoading(false); })
+      .then(result => { 
+        if (Array.isArray(result)) {
+          const mapped = result.map(r => ({
+            id: r._id,
+            axiovitalId: r._id.substring(r._id.length - 8).toUpperCase(),
+            name: r.patientId ? r.patientId.name : 'Unknown',
+            age: '--', gender: '--',
+            disease: r.reportData || 'General Test',
+            collectionMethod: 'Walk-in',
+            paymentStatus: 'Paid',
+            status: r.status === 'pending' ? 'Requested' : r.status === 'reviewed' ? 'Approved' : 'Completed',
+            updatedAt: r.updatedAt
+          }));
+          setData(mapped);
+        }
+        setIsLoading(false); 
+      })
       .catch(err => { console.error(err); setIsLoading(false); });
   };
 
@@ -447,8 +496,8 @@ function TestOrdersPage() {
   // Create Order function removed in favor of Incoming Requests
 
   const updateStatus = (id, status) => {
-    fetch(`/api/requests/${id}/status`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status })
+    fetch(`/reports/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') }, body: JSON.stringify({ status: status === 'Completed' ? 'completed' : status === 'Processing' ? 'reviewed' : 'pending' })
     }).then(() => { setSelectedOrder(null); fetchData(); });
   };
 
@@ -696,15 +745,15 @@ export default function App() {
 
   const handleLogin = async (email, password) => {
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch('/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (data.success) {
         setIsAuthenticated(true);
-        localStorage.setItem('isAuthenticated', 'true');
-        setAdminData(data.user);
+        localStorage.setItem('isAuthenticated', 'true'); localStorage.setItem('token', data.token);
+        setAdminData({ id: data._id, name: data.name, email: data.email, role: data.role });
         setLoginError('');
       } else {
         setLoginError(data.message || 'Login failed');
@@ -715,16 +764,16 @@ export default function App() {
   };
 
   const handleRegister = async (name, email, password) => {
-    const res = await fetch('/api/register', {
+    const res = await fetch('/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, role: 'hospital' })
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.message);
   };
 
   const handleForgotPassword = async (email, newPassword) => {
-    const res = await fetch('/api/forgot-password', {
+    const res = await fetch('/auth/update-password', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, newPassword })
     });
@@ -760,7 +809,7 @@ export default function App() {
 
   const saveProfile = async (e) => {
     e.preventDefault();
-    const res = await fetch(`/api/users/${adminData.id}/profile`, {
+    const res = await fetch(`/api/users/profile`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: tempName, email: tempEmail })
     });
@@ -774,7 +823,7 @@ export default function App() {
   const updatePassword = async (e) => {
     e.preventDefault();
     if (!newPwd) return alert('New password cannot be empty.');
-    const res = await fetch(`/api/users/${adminData.id}/password`, {
+    const res = await fetch(`/auth/update-password`, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd })
     });
